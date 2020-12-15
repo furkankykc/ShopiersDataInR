@@ -1,0 +1,354 @@
+---
+title: "Shopiers"
+author: "Furkankykc"
+date: "12/7/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+library(factoextra) 
+library(ggbiplot)
+library(cluster)    # clustering algorithms
+library(gridExtra)
+library(tidyverse)  # data manipulation
+
+
+
+```
+
+
+```{r}
+data<-read.csv("online_shoppers_intention.csv",fill=TRUE)
+```
+
+```{r}
+#plot(data)
+```
+
+
+
+```{r}
+tbl <- with(data, table(data$VisitorType))
+barplot(tbl, beside = TRUE, legend = TRUE)
+```
+```{r}
+tbl <- with(data, table(data$Weekend))
+barplot(tbl, beside = TRUE, legend = TRUE)
+```
+
+```{r}
+plot(ProductRelated~PageValues,data)
+```
+```{r }
+data %>%
+  group_by(Month) %>%
+  select(Administrative,Administrative_Duration,ProductRelated_Duration,Informational_Duration) %>%
+  with(plot(Administrative~Administrative_Duration))
+```
+```{r}
+data %>%
+  select(Informational,Informational_Duration) %>%
+  with(plot(Informational~Informational_Duration))
+```
+```{r}
+data %>%
+  select(ProductRelated,ProductRelated_Duration) %>%
+  with(plot(ProductRelated~ProductRelated_Duration))
+cor(data$ProductRelated,data$ProductRelated_Duration)
+
+```
+```{r}
+data %>%
+  select(ProductRelated,PageValues) %>%
+  with(plot(ProductRelated~PageValues))
+```
+
+
+```{r Corelation Productrelated with productrelated_duration}
+data %>%
+  group_by(Weekend) %>%
+  select(ProductRelated,ProductRelated_Duration,Administrative,SpecialDay) %>%
+  with(plot(ProductRelated~SpecialDay))
+```
+
+
+```{r}
+
+revenue <- data[data$VisitorType=="New_Visitor",]$Revenue
+selected_data <- data[data$VisitorType =="New_Visitor",]
+str(selected_data)
+```
+
+
+
+```{r}
+#library(devtools)
+#install_github("vqv/ggbiplot")
+```
+
+
+```{r}
+
+selected_data <- select(selected_data,-TrafficType,-Region,-Browser,-BounceRates,-ExitRates,-OperatingSystems,-Revenue)
+head(selected_data)
+```
+```{r}
+pc<-prcomp(select(selected_data,-Month,-VisitorType),center=TRUE,scale.=TRUE)
+attributes(pc)
+pc$center
+pc$scale
+summary(pc)
+ggbiplot(pc,ellipse=TRUE,  labels=rownames(selected_data$ProductRelated), groups=selected_data$PageValues)
+pc
+```
+```{r}
+tibble(selected_data$Administrative,selected_data$Administrative_Duration)
+```
+
+
+```{r}
+selected_data$Administrative_Freq <- selected_data$Administrative_Duration/selected_data$Administrative
+#selected_data$Informational_Freq <- selected_data$Informational_Duration/selected_data$Informational
+selected_data$ProductRelated_Freq <- selected_data$ProductRelated_Duration/selected_data$ProductRelated
+selected_data <- select(selected_data,-Administrative,-Administrative_Duration,-Informational,-Informational_Duration,-ProductRelated_Duration,-ProductRelated)
+```
+
+```{r}
+selected_data$Administrative_Freq[is.na(selected_data$Administrative_Freq)] <- 0
+# selected_data$Informational_Freq[is.na(selected_data$Informational_Freq)] <- 0
+selected_data$ProductRelated_Freq[is.na(selected_data$ProductRelated_Freq)] <- 0
+
+
+```
+
+```{r}
+tibble(selected_data$Administrative_Freq,selected_data$ProductRelated_Freq)
+```
+
+
+```{r}
+head(selected_data)
+```
+
+
+```{r}
+tbl <- with(selected_data, table(selected_data$Weekend))
+barplot(tbl, beside = TRUE, legend = TRUE)
+```
+
+```{r }
+# selected_data %>%
+#   select(Total_freq,SpecialDay,Weekend,Month) %>%
+#   with(plot(Total_freq~Month))
+```
+```{r }
+# selected_data %>%
+#   select(Total_freq,SpecialDay,Weekend,Month) %>%
+#   with(plot(Total_freq~SpecialDay))
+```
+
+```{r}
+pc<-prcomp(select(selected_data,-Month,-VisitorType),center=TRUE,scale.=TRUE)
+attributes(pc)
+pc$center
+pc$scale
+summary(pc)
+
+ggbiplot(pc,ellipse=TRUE)
+pc
+
+```
+
+
+```{r}
+z <- select(selected_data,-Month,-VisitorType)
+m <- apply(z,2,mean)
+s <- apply(z,2,sd)
+z <- scale(z,m,s)
+distance = dist(z)
+```
+
+```{r}
+hc.c <- hclust(distance)
+plot(hc.c,hang=-1)
+```
+
+
+```{r}
+hc.a <- hclust(distance,method="average")
+plot(hc.a,hang=-1)
+```
+```{r}
+member.c <- cutree(hc.c,5)
+member.a <- cutree(hc.a,5)
+table(member.a,member.c)
+```
+```{r}
+aggregate(z,list(member.c),mean)
+```
+
+```{r}
+selected_data<-select(selected_data,-VisitorType,-Month,-Weekend)
+str(selected_data)
+```
+
+
+
+```{r}
+pc<-prcomp(selected_data,center=TRUE,scale.=TRUE)
+attributes(pc)
+pc$center
+pc$scale
+summary(pc)
+pc
+plot(pc,type="l")
+biplot(pc,scale=0)
+```
+
+```{r}
+data2 <- cbind(selected_data,pc$x[,1:2],revenue)
+ggplot(data2,aes(PC2,PC1,PC3,col=revenue,fill=revenue))+
+  stat_ellipse(geom = "polygon",col="black",alpha=0.5)+
+  geom_point(shape=21,col="black")
+```
+```{r}
+#selected_data$Total_freq <- (selected_data$Administrative_Freq+selected_data$Informational_Freq+selected_data$ProductRelated_Freq)/3
+#selected_data <- select(selected_data,-Administrative_Freq,-Informational_Freq,-ProductRelated_Freq)
+#$Total_freq[selected_data$SpecialDay>0]<- selected_data$Total_freq[selected_data$SpecialDay>0]/selected_data$SpecialDay[selected_data$SpecialDay>0]
+
+```
+
+```{r}
+pc<-prcomp(selected_data,center=TRUE,scale=TRUE)
+attributes(pc)
+pc$center
+pc$scale
+summary(pc)
+pc
+plot(pc,type="l")
+biplot(pc,scale=0)
+```
+```{r}
+revenue <- data[data$VisitorType=="New_Visitor",]$Revenue
+data2 <- cbind(selected_data,pc$x[,1:3],revenue)
+ggplot(data2,aes(PC1,PC2,col=revenue,fill=revenue))+
+  stat_ellipse(geom = "polygon",col="black",alpha=0.5)+
+  geom_point(shape=21,col="black")
+```
+
+```{r}
+# z <- select(selected_data,-PageValues)
+# length(z$Total_freq)
+head(z)
+# z$Total_freq[z$SpecialDay>0]<- z$Total_freq[z$SpecialDay>0]/z$SpecialDay[z$SpecialDay>0]
+#z<-select(z,-SpecialDay)
+
+# length(z$Total_freq)
+# head(z)
+
+m <- apply(z,2,mean)
+s <- apply(z,2,sd)
+z <- scale(z,m,s)
+summary(z)
+distance = dist(z)
+hc.c <- hclust(distance)
+#plot(hc.c,hang=-1)
+hc.a <- hclust(distance,method="average")
+#plot(hc.a,hang=-1)
+member.c <- cutree(hc.c,3)
+member.a <- cutree(hc.a,3)
+table(member.a,member.c)
+plot(z,col=member.a)
+z.pc<-prcomp(selected_data,center=TRUE,scale.=TRUE)
+attributes(z.pc)
+pc$center
+pc$scale
+summary(z.pc)
+ggbiplot(z.pc,ellipse=TRUE, groups=member.a)
+```
+
+
+```{r}
+# clustering algorithms & visualization
+
+z <- selected_data
+# z <- select(selected_data,-Weekend)
+m <- apply(z,2,mean)
+s <- apply(z,2,sd)
+z <- scale(z,m,s)
+
+z.pc<-prcomp(selected_data,center=TRUE,scale.=TRUE)
+
+k2 = kmeans(z,centers = 2,nstart = 25 )
+str(k2)
+fviz_cluster(k2, data = z)
+summary(z)
+```
+
+
+
+```{r}
+k3 <- kmeans(z, centers = 3, nstart = 25)
+k4 <- kmeans(z, centers = 4, nstart = 25)
+k5 <- kmeans(z, centers = 5, nstart = 25)
+
+# plots to compare
+p1 <- fviz_cluster(k2, geom = "point", data = z) + ggtitle("k = 2")
+p2 <- fviz_cluster(k3, geom = "point",  data = z) + ggtitle("k = 3")
+p3 <- fviz_cluster(k4, geom = "point",  data = z) + ggtitle("k = 4")
+p4 <- fviz_cluster(k5, geom = "point",  data = z) + ggtitle("k = 5")
+
+grid.arrange(p1, p2, p3, p4, nrow = 2)
+```
+```{r}
+
+set.seed(123)
+
+# function to compute total within-cluster sum of square 
+wss <- function(k) {
+  kmeans(z, k, nstart = 10 )$tot.withinss
+}
+
+# Compute and plot wss for k = 1 to k = 15
+k.values <- 1:15
+
+# extract wss for 2-15 clusters
+wss_values <- map_dbl(k.values, wss)
+
+plot(k.values, wss_values,
+       type="b", pch = 19, frame = FALSE, 
+       xlab="Number of clusters K",
+       ylab="Total within-clusters sum of squares")
+```
+```{r}
+fviz_nbclust(z, kmeans, method = "wss")
+fviz_nbclust(z, kmeans, method = "silhouette")
+set.seed(123)
+gap_stat <- clusGap(z, FUN = kmeans, nstart = 25,
+                    K.max = 10, B = 2)
+fviz_gap_stat(gap_stat)
+  
+```
+
+```{r}
+set.seed(123)
+final <- kmeans(z,3, nstart = 25)
+fviz_cluster(final, data = z)
+
+plot(z.pc$x[,1],z.pc$x[,2],col=final$cluster)
+plot(z.pc$x[,1],z.pc$x[,3],col=final$cluster)
+plot(z.pc$x[,2],z.pc$x[,3],col=final$cluster)
+# plot(final$cluster,col=ifelse(data2$Weekend,'red','green'))
+
+```
+```{r}
+```
+
+
+
+
